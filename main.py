@@ -217,7 +217,7 @@ function renderProto(d){
   +'<div class="res-stat"><div class="rs"><div class="rl">24h Change</div><div class="rv" style="'+c1dCls+'">'+c1dStr+'</div></div><div class="rs"><div class="rl">7d Change</div><div class="rv" style="'+c7dCls+'">'+c7dStr+'</div></div></div>'
   +(sorted.length?'<div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">TVL BY CHAIN</div><div class="chain-list">'+chainHtml+'</div>':'')
   +(tags?'<div style="margin-top:10px">'+tags+'</div>':'')
-  +'<div class="toggle-raw" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'block\':\'none\'">Show raw JSON</div>'
+  +'<div class="toggle-raw" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\\x27none\\x27?\\x27block\\x27:\\x27none\\x27">Show raw JSON</div>'
   +'<div class="raw-json">'+JSON.stringify(d,null,2)+'</div>'
   +'</div>';
 }
