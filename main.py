@@ -176,20 +176,22 @@ hr.dv{border:none;border-top:1px solid rgba(255,255,255,.06);margin:18px 0}
 function fmt(n){if(n==null)return'--';if(n>=1e12)return'$'+(n/1e12).toFixed(2)+'T';if(n>=1e9)return'$'+(n/1e9).toFixed(2)+'B';if(n>=1e6)return'$'+(n/1e6).toFixed(1)+'M';return'$'+n.toLocaleString('en-US',{maximumFractionDigits:0})}
 async function init(){
  const t0=Date.now();
- try{await fetch('/health');const ms=Date.now()-t0;document.getElementById('dot').classList.add('on');document.getElementById('stx').textContent='online \\u00B7 '+ms+'ms'}catch(e){document.getElementById('stx').textContent='offline'}
  try{
-  const ch=await fetch('/chains').then(r=>r.json());
-  const totalTvl=ch.chains?ch.chains.reduce((s,c)=>s+(c.tvl||0),0):0;
-  const chainCount=ch.chains?ch.chains.length:0;
-  const st=document.getElementById('stats');
-  st.innerHTML='<div class="sc"><div class="sl">TOTAL TVL</div><div class="sv">'+fmt(totalTvl)+'</div></div>'
-   +'<div class="sc"><div class="sl">CHAINS TRACKED</div><div class="sv">'+chainCount+'</div></div>';
- }catch(e){}
- try{
-  const p=await fetch('/top?limit=5').then(r=>r.json());
-  if(p.protocols&&p.protocols.length){const sec=document.getElementById('topsec');sec.style.display='';const list=document.getElementById('toplist');
-  p.protocols.forEach(pr=>{const row=document.createElement('div');row.className='tr';row.innerHTML='<span class="nm">'+pr.name+'</span><span class="val">'+fmt(pr.tvl)+'</span>';list.appendChild(row)})}
- }catch(e){}
+  const dash=await fetch('/dashboard').then(r=>r.json());
+  const ms=Date.now()-t0;
+  if(dash.health&&dash.health.status==='healthy'){document.getElementById('dot').classList.add('on');document.getElementById('stx').textContent='online \\u00B7 '+ms+'ms'}else{document.getElementById('stx').textContent='offline'}
+  if(dash.chains&&dash.chains.chains){
+   const totalTvl=dash.chains.chains.reduce((s,c)=>s+(c.tvl||0),0);
+   const chainCount=dash.chains.chains.length;
+   const st=document.getElementById('stats');
+   st.innerHTML='<div class="sc"><div class="sl">TOTAL TVL</div><div class="sv">'+fmt(totalTvl)+'</div></div>'
+    +'<div class="sc"><div class="sl">CHAINS TRACKED</div><div class="sv">'+chainCount+'</div></div>';
+  }
+  if(dash.top_protocols&&dash.top_protocols.protocols&&dash.top_protocols.protocols.length){
+   const sec=document.getElementById('topsec');sec.style.display='';const list=document.getElementById('toplist');
+   dash.top_protocols.protocols.forEach(pr=>{const row=document.createElement('div');row.className='tr';row.innerHTML='<span class="nm">'+pr.name+'</span><span class="val">'+fmt(pr.tvl)+'</span>';list.appendChild(row)})
+  }
+ }catch(e){document.getElementById('stx').textContent='offline'}
 }
 function ts(s){document.getElementById('proto').value=s;fetchP()}
 function renderProto(d){
@@ -451,3 +453,67 @@ async def get_chain_tvl(
         })
 
     return {"chain": chain, "history": points, "count": len(points), "timestamp": _ts()}
+
+
+@app.get("/dashboard")
+async def get_dashboard():
+    """
+    Get all homepage data in one call: health, chains, and top protocols.
+    Makes upstream API calls sequentially with delays to avoid rate limiting.
+    Example: /dashboard
+    """
+    import asyncio
+
+    dashboard_data = {
+        "health": None,
+        "chains": None,
+        "top_protocols": None,
+        "timestamp": _ts(),
+    }
+
+    # Health check (internal, no upstream call needed)
+    dashboard_data["health"] = {"status": "healthy", "timestamp": _ts()}
+
+    # Small delay before first upstream call
+    await asyncio.sleep(0.1)
+
+    # Fetch chains data
+    try:
+        chains_data = await _llama_get(f"{BASE_URL}/v2/chains")
+        chains = []
+        for chain in chains_data if isinstance(chains_data, list) else []:
+            chains.append({
+                "name": chain.get("name"),
+                "tvl": chain.get("tvl"),
+                "token_symbol": chain.get("tokenSymbol"),
+                "gecko_id": chain.get("gecko_id"),
+            })
+        chains.sort(key=lambda c: c.get("tvl") or 0, reverse=True)
+        dashboard_data["chains"] = {"chains": chains, "count": len(chains)}
+    except Exception as e:
+        dashboard_data["chains"] = {"error": str(e), "chains": [], "count": 0}
+
+    # Delay between upstream calls
+    await asyncio.sleep(0.2)
+
+    # Fetch top protocols
+    try:
+        protocols_data = await _llama_get(f"{BASE_URL}/protocols")
+        protocols = []
+        for p in (protocols_data if isinstance(protocols_data, list) else [])[:5]:
+            protocols.append({
+                "name": p.get("name"),
+                "slug": p.get("slug"),
+                "tvl": p.get("tvl"),
+                "category": p.get("category"),
+                "chains": p.get("chains", []),
+                "change_1d_pct": p.get("change_1d"),
+                "change_7d_pct": p.get("change_7d"),
+                "mcap": p.get("mcap"),
+                "symbol": p.get("symbol"),
+            })
+        dashboard_data["top_protocols"] = {"protocols": protocols, "count": len(protocols)}
+    except Exception as e:
+        dashboard_data["top_protocols"] = {"error": str(e), "protocols": [], "count": 0}
+
+    return dashboard_data
