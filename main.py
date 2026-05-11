@@ -139,7 +139,24 @@ hr.dv{border:none;border-top:1px solid rgba(255,255,255,.06);margin:18px 0}
 .bt{background:#0080FF;color:#fff;border:none;border-radius:10px;padding:13px 22px;font-weight:700;font-size:14px;cursor:pointer;font-family:'Courier New',monospace;white-space:nowrap;transition:opacity .15s}
 .bt:hover{opacity:.85}
 .try{color:#555;font-size:12px}.try a{color:#666;text-decoration:none;cursor:pointer;transition:color .15s}.try a:hover{color:#0080FF}
-#res{margin-top:14px;padding:14px 16px;background:rgba(0,128,255,.06);border:1px solid rgba(0,128,255,.15);border-radius:10px;display:none;font-family:'Courier New',monospace;font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto}
+#res{margin-top:14px;display:none}
+.res-ui{padding:16px 18px;background:rgba(0,128,255,.06);border:1px solid rgba(0,128,255,.15);border-radius:10px}
+.res-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.res-title{font-size:16px;font-weight:700;color:#fff}
+.res-sub{font-size:12px;color:#0080FF;font-family:'Courier New',monospace}
+.res-stat{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.rs{background:rgba(0,128,255,.08);border-radius:8px;padding:10px 12px}
+.rs .rl{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+.rs .rv{font-family:'Courier New',monospace;font-size:18px;font-weight:700;color:#fff}
+.chain-list{margin-top:8px}
+.chain-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:13px}
+.chain-row:last-child{border-bottom:none}
+.chain-row .cn{color:#ccc}.chain-row .cv{font-family:'Courier New',monospace;color:#0080FF;font-weight:600}
+.chain-bar{height:4px;border-radius:2px;background:rgba(0,128,255,.4);margin-top:2px}
+.ch-tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:4px;margin:2px 2px 2px 0;background:rgba(0,128,255,.1);color:#0080FF}
+.toggle-raw{margin-top:12px;font-size:12px;color:#666;cursor:pointer;user-select:none;transition:color .15s}
+.toggle-raw:hover{color:#0080FF}
+.raw-json{margin-top:8px;padding:12px;background:rgba(0,0,0,.3);border-radius:8px;font-family:'Courier New',monospace;font-size:11px;line-height:1.5;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto;color:#888;display:none}
 @keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 @media(max-width:480px){.stats{grid-template-columns:1fr}.w{padding:20px}}
 </style>
@@ -175,12 +192,41 @@ async function init(){
  }catch(e){}
 }
 function ts(s){document.getElementById('proto').value=s;fetchP()}
+function renderProto(d){
+ const tvl=d.tvl;const tvlStr=tvl!=null?fmt(tvl):'--';
+ const c1d=d.change_1d_pct;const c7d=d.change_7d_pct;
+ const c1dStr=c1d!=null?((c1d>=0?'+':'')+c1d.toFixed(2)+'%'):'--';
+ const c7dStr=c7d!=null?((c7d>=0?'+':'')+c7d.toFixed(2)+'%'):'--';
+ const c1dCls=c1d>=0?'color:#4CAF50':'color:#ef5350';
+ const c7dCls=c7d>=0?'color:#4CAF50':'color:#ef5350';
+ // Chain TVLs
+ let chainHtml='';
+ const ct=d.chain_tvls||{};
+ const sorted=Object.entries(ct).sort((a,b)=>b[1]-a[1]);
+ const maxTvl=sorted.length?sorted[0][1]:1;
+ sorted.slice(0,8).forEach(([chain,val])=>{
+  const pct=Math.max((val/maxTvl)*100,2);
+  chainHtml+='<div class="chain-row"><span class="cn">'+chain+'</span><span class="cv">'+fmt(val)+'</span></div><div class="chain-bar" style="width:'+pct+'%"></div>';
+ });
+ // Category + chains tags
+ let tags='';
+ if(d.category)tags+='<span class="ch-tag">'+d.category+'</span>';
+ (d.chains||[]).slice(0,6).forEach(c=>{tags+='<span class="ch-tag">'+c+'</span>'});
+ return '<div class="res-ui">'
+  +'<div class="res-hd"><div><div class="res-title">'+(d.name||d.slug||'')+'</div><div class="res-sub">'+(d.symbol||'')+(d.url?' &middot; <a href="'+d.url+'" target="_blank" style="color:#0080FF">site</a>':'')+'</div></div><div style="text-align:right"><div style="font-family:Courier New,monospace;font-size:28px;font-weight:700;color:#fff">'+tvlStr+'</div><div style="font-size:11px;color:#666">TVL</div></div></div>'
+  +'<div class="res-stat"><div class="rs"><div class="rl">24h Change</div><div class="rv" style="'+c1dCls+'">'+c1dStr+'</div></div><div class="rs"><div class="rl">7d Change</div><div class="rv" style="'+c7dCls+'">'+c7dStr+'</div></div></div>'
+  +(sorted.length?'<div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">TVL BY CHAIN</div><div class="chain-list">'+chainHtml+'</div>':'')
+  +(tags?'<div style="margin-top:10px">'+tags+'</div>':'')
+  +'<div class="toggle-raw" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'block\':\'none\'">Show raw JSON</div>'
+  +'<div class="raw-json">'+JSON.stringify(d,null,2)+'</div>'
+  +'</div>';
+}
 async function fetchP(){
  const s=document.getElementById('proto').value.trim().toLowerCase();if(!s)return;
- const res=document.getElementById('res');res.style.display='block';res.textContent='Fetching '+s+'...';
+ const res=document.getElementById('res');res.style.display='block';res.innerHTML='<div class="res-ui" style="color:#888;text-align:center;padding:20px">Fetching '+s+'...</div>';
  try{const d=await fetch('/protocol?name='+encodeURIComponent(s)).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()});
-  res.textContent=JSON.stringify(d,null,2)}
- catch(e){res.innerHTML='<span style="color:#ef5350">Error fetching '+s+'</span>'}
+  res.innerHTML=renderProto(d)}
+ catch(e){res.innerHTML='<div class="res-ui"><span style="color:#ef5350">Error fetching '+s+'</span></div>'}
 }
 init();
 </script>
