@@ -179,7 +179,7 @@ async function init(){
  try{
   const dash=await fetch('/dashboard').then(r=>r.json());
   const ms=Date.now()-t0;
-  if(dash.health&&dash.health.status==='healthy'){document.getElementById('dot').classList.add('on');document.getElementById('stx').textContent='online \\u00B7 '+ms+'ms'}else{document.getElementById('stx').textContent='offline'}
+  if(dash.health&&dash.health.status==='healthy'){document.getElementById('dot').classList.add('on');document.getElementById('stx').textContent='online \u00B7 '+ms+'ms'}else{document.getElementById('stx').textContent='offline'}
   if(dash.chains&&dash.chains.chains){
    const totalTvl=dash.chains.chains.reduce((s,c)=>s+(c.tvl||0),0);
    const chainCount=dash.chains.chains.length;
