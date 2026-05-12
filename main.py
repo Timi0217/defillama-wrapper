@@ -268,10 +268,29 @@ async def get_protocol(name: str = Query(..., description="Protocol name or slug
 
     # Current TVL = sum of chain TVLs, or last entry in tvl history array
     current_tvl = sum(chain_tvls.values()) if chain_tvls else None
+    tvl_history = data.get("tvl")
     if current_tvl is None:
-        tvl_history = data.get("tvl")
         if isinstance(tvl_history, list) and tvl_history:
             current_tvl = tvl_history[-1].get("totalLiquidityUSD")
+
+    # Compute change percentages from TVL history if upstream returns null
+    change_1d = data.get("change_1d")
+    change_7d = data.get("change_7d")
+    change_1h = data.get("change_1h")
+
+    if (change_1d is None or change_7d is None) and isinstance(tvl_history, list) and len(tvl_history) >= 2:
+        current = tvl_history[-1].get("totalLiquidityUSD") if tvl_history else None
+        if current and current > 0:
+            # 1-day change (last entry vs ~1 day ago)
+            if change_1d is None and len(tvl_history) >= 2:
+                prev_1d = tvl_history[-2].get("totalLiquidityUSD")
+                if prev_1d and prev_1d > 0:
+                    change_1d = ((current - prev_1d) / prev_1d) * 100
+            # 7-day change (last entry vs ~7 days ago)
+            if change_7d is None and len(tvl_history) >= 8:
+                prev_7d = tvl_history[-8].get("totalLiquidityUSD")
+                if prev_7d and prev_7d > 0:
+                    change_7d = ((current - prev_7d) / prev_7d) * 100
 
     return {
         "name": data.get("name"),
@@ -280,9 +299,9 @@ async def get_protocol(name: str = Query(..., description="Protocol name or slug
         "chain_tvls": chain_tvls,
         "category": data.get("category"),
         "chains": data.get("chains", []),
-        "change_1h_pct": data.get("change_1h"),
-        "change_1d_pct": data.get("change_1d"),
-        "change_7d_pct": data.get("change_7d"),
+        "change_1h_pct": change_1h,
+        "change_1d_pct": change_1d,
+        "change_7d_pct": change_7d,
         "mcap": data.get("mcap"),
         "symbol": data.get("symbol"),
         "url": data.get("url"),
